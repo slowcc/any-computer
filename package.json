@@ -37,6 +37,7 @@
   "devDependencies": {
     "@rollup/plugin-dsv": "^3.0.5",
     "@types/lodash": "^4.17.7",
+    "@types/node": "^20.0.0",
     "@types/react": "npm:types-react@rc",
     "@types/react-dom": "npm:types-react-dom@rc",
     "@vitejs/plugin-react": "^4.2.1",
@@ -46,8 +47,7 @@
     "postcss": "^8.4.41",
     "typescript": "^5.6.2",
     "vite": "^5.3.1",
-    "vite-plugin-svgr": "^4.2.0",
-    "@types/node": "^20.0.0"
+    "vite-plugin-svgr": "^4.2.0"
   },
   "overrides": {
     "@types/react": "npm:types-react@rc",
