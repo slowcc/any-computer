@@ -1,0 +1,13 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    #lines {
+      stroke: black;
+    }
+    @media (prefers-color-scheme: dark) {
+      #lines {
+        stroke: white;
+      }
+    }
+  </style>
+  <path id="lines" d="M16 4H4V16V28H16M16 4H28V16V28H16M16 4V28" stroke-width="2.4"/>
+</svg>
