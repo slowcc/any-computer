@@ -1,4 +1,4 @@
-const RATE_LIMIT = 50;
+const RATE_LIMIT = 150;
 const RATE_LIMIT_PERIOD = 60 * 60; // 1 hour in seconds
 
 export async function onRequest(context) {
