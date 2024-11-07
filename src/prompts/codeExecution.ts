@@ -38,7 +38,6 @@ If the error is "No ID found for "XXX"", it means the ticker is not available, y
 To catch error in getPrice(), use getPrice().catch(console.log err and return fallbackValue); fallbackValue MUST be a reasonable value based on the context.
 `;
 
-
 export const codeTips = `
 <rules>
   0. ALWAYS respond with executable JavaScript code.
@@ -49,7 +48,7 @@ export const codeTips = `
   5. Use toFixed() to format the output of numbers in console.log, choosing an appropriate precision based on the context.
   6. Don't forget to add comments; they are important.
   7. If the original input is not in English, translate it to English first.
-  8. For date and time, use the current date and time unless otherwise specified.
+  8. For date and time, use date-fns functions, and use the current date and time unless otherwise specified.
 </rules>
 
 <steps>
@@ -59,7 +58,11 @@ export const codeTips = `
   4. Write the final code in a <finalCode> section.
 </steps>
 
-<example>
+<examples>
+{{recipes/*.md}}
+</examples>
+
+<format>
   Input:
   how much is 100 CNY in USD?
 
@@ -91,13 +94,13 @@ export const codeTips = `
   console.log("Amount in USD:", (cnyInUsd * amount).toFixed(2));
   \`\`\`
   </finalCode>
-</example>
+</format>
   `
 
 export const transformCodePrompt = (input: string) => [
   {
     role: 'system',
-    content: 'You are a code generator. Transform the given input into direct runable JavaScript code. Add console.log statements to output relevant information. Do not include any preamble or explanation. Return the code only start with ```javascript and end with ```' + assetPricePrompt + codeTips,
+    content: 'You are a code generator. Transform the given input into direct runable JavaScript code. Add console.log statements to output relevant information. Return the code start with ```javascript and end with ```' + assetPricePrompt + codeTips,
   },
   {
     role: 'user',
@@ -109,7 +112,13 @@ export const variableAnalysisPrompt = (inputToAnalyze: string, codeToAnalyze: st
   {
     role: 'system',
     content: `Analyze the original input and the transformed code to identify variables that were used directly as values.
+    Make sure to only include variables that were used DIRECTLY as values.
+
+    For example, if the input is "convert 100 USD to EUR", and the code is "const amount = 100; const usdRate = await getPrice('FX.EUR/USD');", the variable "amount" was used directly as a value, so it should be included in the analysis.
+    However, for input "how many days are there between now and 2025 Jan 01?", "2025 Jan 01" can not be used directly as a value, so it should not be included in the analysis.
+
     Return the analysis in the following JSON format:
+
     {
       "bindings": [
         {
@@ -201,13 +210,22 @@ export const improvePrompt = (input: string, codeToExecute: string, logMessages:
     role: 'system',
     content: `You are a professional code reviewer.
     The code you are reviewing is transformed from the original input.
-    All iteration values from the input should be assigned to standalone variables with proper names.
-    DO NOT add literal numbers, especially values from the input, in the comments.
-    Review the given JavaScript code, its output, and the original input.
+
+    Your review standard:
+
+    1. All literal values from the input should be assigned to standalone variables with proper names.
+    Beacuse we want to make it easy to change the literal values.
+
+    2. DO NOT add literal numbers (especially values from the input) in the comments.
+    Because when we change the value, we don't want to change the comments at the same time.
+
+    3. Review the given JavaScript code, its output, and the original input.
     Suggest improvements to make the code more correct, readable, or understandable.
-    The output should be resonably detailed, but not too verbose.
-    In principle, the number of console.log statements should at least match the number of lines in the input.
-    You should compare the input and the output, make sure its output makes sense, point out any mistakes in the output, and make improvements to the code if necessary.
+    
+    4. The output should be resonably detailed, but not too verbose.
+    In principle, the number of console.log statements should at least match the number of lines in the original input.
+
+    5. Compare the input and the output, make sure its output makes sense, point out any mistakes in the output, and make improvements to the code if necessary.
     ` + assetPricePrompt,
   },
   {

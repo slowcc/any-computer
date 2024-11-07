@@ -1,4 +1,5 @@
 import { getPrice } from '../utils/pyth';
+import * as dateFns from 'date-fns';
 
 interface CacheEntry {
   value: number;
@@ -30,6 +31,17 @@ export interface LogMessage {
   inputLine?: number;
 }
 
+// Define a type for whitelisted modules
+type WhitelistedModules = {
+  'date-fns': typeof dateFns;
+  // Add other whitelisted modules here
+};
+
+// Create the whitelist object
+const whitelistedModules: WhitelistedModules = {
+  'date-fns': dateFns,
+};
+
 export const executeCode = async (
   codeToExecute: string,
 ): Promise<LogMessage[]> => {
@@ -57,13 +69,20 @@ export const executeCode = async (
 
     try {
       tempLogMessages = [];
-      const asyncFunction = new Function('getPrice', `
+      // Updated function to include import handling
+      const asyncFunction = new Function('getPrice', 'require', `
         return async function() {
+          const require = (moduleName) => {
+            if (!arguments[1].hasOwnProperty(moduleName)) {
+              throw new Error(\`Module "\${moduleName}" is not whitelisted\`);
+            }
+            return arguments[1][moduleName];
+          };
           ${codeToExecute}
         }
       `);
       
-      asyncFunction(getPriceWithCache)()
+      asyncFunction(getPriceWithCache, whitelistedModules)()
         .then(() => {
           console.log = originalConsoleLog;
           resolve(tempLogMessages);
