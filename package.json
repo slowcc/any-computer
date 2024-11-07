@@ -20,7 +20,7 @@
     "@xiechao/codemirror-lang-handlebars": "^1.0.4",
     "autoprefixer": "^10.4.19",
     "axios": "^1.7.2",
-    "date-fns": "^3.6.0",
+    "date-fns": "^4.1.0",
     "lodash": "^4.17.21",
     "nanoid": "^5.0.7",
     "postcss-cli": "^11.0.0",
@@ -46,7 +46,8 @@
     "postcss": "^8.4.41",
     "typescript": "^5.6.2",
     "vite": "^5.3.1",
-    "vite-plugin-svgr": "^4.2.0"
+    "vite-plugin-svgr": "^4.2.0",
+    "@types/node": "^20.0.0"
   },
   "overrides": {
     "@types/react": "npm:types-react@rc",
