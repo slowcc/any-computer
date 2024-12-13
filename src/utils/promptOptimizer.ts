@@ -277,16 +277,12 @@ Focus on providing actionable insights that can help improve the template while 
 
   private generateVersionName(version: PromptVersion, allVersions: PromptVersion[]): string {
     // Handle initial version
-    if (version.parentId === 'initial') {
-      return 'Initial';
+    if (version.id === 'initial' || version.parentId === 'initial') {
+      const rootVersions = allVersions.filter(v => v.parentId === 'initial');
+      const index = rootVersions.findIndex(v => v.id === version.id);
+      return `V${index + 1}`;
     }
     
-    if (!version.parentId) {
-      const rootVersions = allVersions.filter(v => !v.parentId || v.parentId === 'initial');
-      const index = rootVersions.findIndex(v => v.id === version.id) + 1;
-      return `V${index}`;
-    }
-
     // Find parent version
     const parent = allVersions.find(v => v.id === version.parentId);
     if (!parent) {
@@ -301,9 +297,9 @@ Focus on providing actionable insights that can help improve the template while 
 
     // Find siblings and determine index
     const siblings = allVersions.filter(v => v.parentId === version.parentId);
-    const index = siblings.findIndex(v => v.id === version.id) + 1;
+    const index = siblings.findIndex(v => v.id === version.id);
     
-    return `${parent.versionName}.${index}`;
+    return `${parent.versionName}.${index + 1}`;
   }
 
   private ensureVersionName<T extends PromptVersion>(version: T): T {
