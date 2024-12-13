@@ -99,10 +99,16 @@ export const usePromptFinderStore = create<PromptFinderState>()(
             };
           }
 
-          // For non-initial versions, ensure they have a valid parent ID
+          // For non-initial versions, ensure they have valid IDs and parent IDs
           const newVersion = { ...version };
+          
+          // Ensure version has an ID
+          if (!newVersion.id) {
+            newVersion.id = `v${state.promptVersions.length + 1}`;
+          }
+
+          // If no parent ID is specified, use the most recent version as parent
           if (!newVersion.parentId) {
-            // If no parent ID is specified, use the most recent version as parent
             const lastVersion = state.promptVersions[state.promptVersions.length - 1];
             newVersion.parentId = lastVersion ? lastVersion.id : 'initial';
           }

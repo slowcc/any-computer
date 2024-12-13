@@ -15,6 +15,11 @@ const NodeDetails: React.FC<NodeDetailsProps> = ({ version, versionIndex, parent
   const [viewMode, setViewMode] = useState<ViewMode>('basic');
   const [showDiff, setShowDiff] = useState(false);
 
+  const getVersionName = (version: PromptVersionWithEvaluation) => {
+    if (version.id === 'initial') return 'Initial Template';
+    return `Version ${version.versionName || `${versionIndex + 1}`}`;
+  };
+
   const renderBasicInfo = () => (
     <div className="space-y-4">
       <div>
@@ -135,7 +140,7 @@ const NodeDetails: React.FC<NodeDetailsProps> = ({ version, versionIndex, parent
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">
-          Version Details {version.versionName && `(${version.versionName})`}
+          {getVersionName(version)}
         </h2>
         <div className="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
           <button
