@@ -15,12 +15,13 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { PromptVersion, usePromptFinderStore } from '../stores/promptFinderStore';
+import { PromptVersionWithEvaluation } from '../utils/promptOptimizer';
 import { NodePosition } from '../types/flow';
 
 interface PromptFlowGraphProps {
-  versions: PromptVersion[];
-  onNodeSelect: (version: PromptVersion) => void;
-  onOptimizeRequest: (parentVersion: PromptVersion) => void;
+  versions: PromptVersionWithEvaluation[];
+  onNodeSelect: (version: PromptVersionWithEvaluation) => void;
+  onOptimizeRequest: (parentVersion: PromptVersionWithEvaluation) => void;
 }
 
 interface GenerationInfo {
@@ -168,11 +169,17 @@ export const PromptFlowGraph: React.FC<PromptFlowGraphProps> = ({
     });
 
     const newEdges = versions
-      .filter(version => version.id !== 'initial')
+      .filter(version => version.id !== 'initial' && version.parentId)
       .map(version => {
-        const sourceId = version.parentId || 'initial';
-        const sourceExists = versions.some(v => v.id === sourceId);
-        if (!sourceExists) return null;
+        const sourceId = version.parentId!;
+        const sourceNode = versions.find(v => v.id === sourceId);
+        const targetNode = versions.find(v => v.id === version.id);
+        
+        // Only create edge if both source and target nodes exist
+        if (!sourceNode || !targetNode) {
+          console.warn(`Missing nodes for edge: source=${sourceId}, target=${version.id}`);
+          return null;
+        }
         
         const edge: Edge = {
           id: `${sourceId}-${version.id}`,

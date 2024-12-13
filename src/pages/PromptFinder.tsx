@@ -111,13 +111,20 @@ const PromptFinderContent: React.FC = () => {
 
   const handleOptimizeRequest = async (parentVersion: PromptVersion) => {
     const vars = JSON5.parse(variables);
-    // Create a properly typed version with evaluation data
     const versionWithEval: PromptVersionWithEvaluation = {
       ...parentVersion,
+      rawEvaluationResult: parentVersion.rawEvaluationResult || '',
+      explanation: 'Version optimized from parent template',
       evaluation: {
         relativeScore: 100,
-        comparisonNotes: 'Base version for optimization',
-        strengthsAndWeaknesses: 'Starting point for new optimization branch',
+        absoluteScore: parentVersion.score,
+        analysis: {
+          conceptAlignment: 'Base version for optimization',
+          contextualAccuracy: 'Starting point for new optimization branch',
+          completeness: 'Base template analysis',
+          improvements: 'Pending optimization'
+        },
+        strengthsAndWeaknesses: 'Original template - Not yet optimized',
         parentComparison: 'Root of new optimization branch'
       }
     };
@@ -187,11 +194,18 @@ const PromptFinderContent: React.FC = () => {
       result: promptVersions.length === 0 ? '' : promptVersions[0]?.result || '',
       score: promptVersions.length === 0 ? 0 : 100,
       feedback: 'Initial template',
+      explanation: 'Initial template for optimization',
       evaluation: {
         relativeScore: 100,
-        comparisonNotes: 'Initial template serving as the baseline',
-        strengthsAndWeaknesses: 'Base template for optimization process',
-        parentComparison: 'Root template with no parent'
+        absoluteScore: promptVersions.length === 0 ? 0 : promptVersions[0]?.score || 0,
+        analysis: {
+          conceptAlignment: 'Initial template serving as the baseline',
+          contextualAccuracy: 'Pending evaluation',
+          completeness: 'Pending evaluation',
+          improvements: 'Generate variations to improve the template'
+        },
+        strengthsAndWeaknesses: 'Base template - Not yet optimized',
+        parentComparison: 'No parent comparison available'
       },
       rawEvaluationResult: ''
     };
@@ -201,9 +215,16 @@ const PromptFinderContent: React.FC = () => {
       initialVersion,
       ...promptVersions.map(v => ({
         ...v,
+        explanation: v.explanation || 'Generated version',
         evaluation: v.evaluation || {
           relativeScore: 0,
-          comparisonNotes: 'Pending evaluation',
+          absoluteScore: v.score,
+          analysis: {
+            conceptAlignment: 'Pending evaluation',
+            contextualAccuracy: 'Pending evaluation',
+            completeness: 'Pending evaluation',
+            improvements: 'Pending evaluation'
+          },
           strengthsAndWeaknesses: 'Pending evaluation',
           parentComparison: 'Pending evaluation'
         },
@@ -216,7 +237,13 @@ const PromptFinderContent: React.FC = () => {
       ...selectedVersion,
       evaluation: selectedVersion.evaluation || {
         relativeScore: 0,
-        comparisonNotes: 'Pending evaluation',
+        absoluteScore: selectedVersion.score,
+        analysis: {
+          conceptAlignment: 'Pending evaluation',
+          contextualAccuracy: 'Pending evaluation',
+          completeness: 'Pending evaluation',
+          improvements: 'Pending evaluation'
+        },
         strengthsAndWeaknesses: 'Pending evaluation',
         parentComparison: 'Pending evaluation'
       },
@@ -242,10 +269,7 @@ const PromptFinderContent: React.FC = () => {
                 allVersions.find(v => v.id === selectedVersionWithEval.parentId) : 
                 undefined
               }
-              evaluation={selectedVersionWithEval.id === 'initial' ? 
-                initialVersion.evaluation : 
-                selectedVersionWithEval.evaluation
-              }
+              evaluation={selectedVersionWithEval.evaluation}
             />
           ) : (
             <div className="text-gray-500 p-4 text-center">
