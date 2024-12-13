@@ -52,7 +52,12 @@ const customProviderOptions = {
   }
 } as ProviderOptions;
 
-export const prompt = async (messages: TypeMessage[], options: Partial<ChatCompletionBody> & { providers: ProviderModel[] }): Promise<string> => {
+type PromptOptions = Partial<ChatCompletionBody> & { 
+  providers: ProviderModel[];
+  skipVersioning?: boolean;
+}
+
+export const prompt = async (messages: TypeMessage[], options: PromptOptions): Promise<string> => {
   const providers = options.providers || [
     {
       provider: defaultProvider,
@@ -98,7 +103,7 @@ export const usePrompt = ({
 
   const initChatCompletionStream = async (
     messages: TypeMessage[],
-    options: Partial<ChatCompletionBody> & { providers: ProviderModel[] },
+    options: PromptOptions,
     tag?: string
   ) => {
     setIsStreaming(true);
@@ -137,15 +142,18 @@ export const usePrompt = ({
           if (end) {
             setIsStreaming(false);
             setResponseStatus('succeed');
-            onStreamingEnd?.(streamedContentRef.current, {
-              ...response,
-              usage: streamedContentUsageRef.current,
-            }, currentTagRef.current);
+            if (!options?.skipVersioning) {
+              onStreamingEnd?.(streamedContentRef.current, {
+                ...response,
+                usage: streamedContentUsageRef.current,
+              }, currentTagRef.current);
+            }
             streamedContentUsageRef.current = null
           }
         },
         abortControllerRef.current
       );
+      return streamedContentRef.current;
     } catch (error) {
       console.error('Error in chat request:', error);
       setIsStreaming(false);

@@ -13,7 +13,7 @@ import { AppContextProvider } from "./contexts/AppContext";
 
 import Pad from "./pages/Pad";
 import PadHeader from "./components/PadHeader";
-
+import { PromptFinder } from "./pages/PromptFinder";
 const rootRoute = createRootRoute({
   component: () => {
     return (
@@ -34,9 +34,16 @@ const PadRoute = createRoute({
   component: Pad,
 });
 
+const PromptFinderRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/prompt-finder",
+  component: PromptFinder,
+});
+
 const router = createRouter({
   routeTree: rootRoute.addChildren([
     PadRoute,
+    PromptFinderRoute,
   ]),
 });
 

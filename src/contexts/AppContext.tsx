@@ -1,12 +1,16 @@
 import React, { createContext, ReactNode, useEffect } from "react";
 import { Theme, darkTheme, lightTheme } from '../themes';
-import { usePadStore } from '../stores/padStore';
+import { useAppStore } from '../stores/appStore';
 import { useShallow } from 'zustand/react/shallow';
 
 type AppContextType = {
   theme: Theme;
   currentTheme: string;
   setTheme: (theme: 'light' | 'dark' | 'auto') => void;
+  apiKeySettings: {
+    Gemini?: string;
+    // Add other API keys as needed
+  };
 };
 
 export const AppContext = createContext<AppContextType>({} as AppContextType);
@@ -16,9 +20,10 @@ interface AppContextProviderProps {
 }
 
 export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children }) => {
-  const { currentTheme, setTheme } = usePadStore(useShallow((state) => ({
+  const { currentTheme, setTheme, apiKeySettings } = useAppStore(useShallow((state) => ({
     currentTheme: state.currentTheme,
     setTheme: state.setTheme,
+    apiKeySettings: state.apiKeySettings,
   })));
 
   const isDark = currentTheme === 'dark' || (currentTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -53,7 +58,12 @@ export const AppContextProvider: React.FC<AppContextProviderProps> = ({ children
     root.style.setProperty('--bg-scrollbar-thumb', theme.background.scrollbarThumb);
   }, [theme]);
 
-  return <AppContext value={{ theme, setTheme, currentTheme }}>
+  return <AppContext.Provider value={{ 
+    theme, 
+    setTheme, 
+    currentTheme,
+    apiKeySettings 
+  }}>
     {children}
-  </AppContext>;
+  </AppContext.Provider>;
 };
