@@ -1,17 +1,12 @@
 import React, { useState } from 'react';
-import { PromptVersionWithEvaluation } from '../utils/promptOptimizer';
+import { PromptVersionWithEvaluation, EvaluationData } from '../utils/promptOptimizer';
 import { DiffView } from './DiffView';
 
 interface NodeDetailsProps {
   version: PromptVersionWithEvaluation;
   versionIndex: number;
   parentVersion?: PromptVersionWithEvaluation;
-  evaluation?: {
-    relativeScore: number;
-    comparisonNotes: string;
-    strengthsAndWeaknesses: string;
-    parentComparison: string;
-  };
+  evaluation?: EvaluationData;
 }
 
 type ViewMode = 'basic' | 'evaluation' | 'raw';
@@ -59,41 +54,71 @@ const NodeDetails: React.FC<NodeDetailsProps> = ({ version, versionIndex, parent
     </div>
   );
 
-  const renderEvaluation = () => (
-    <div className="space-y-4">
-      <div className="flex items-center space-x-4">
-        <div className="flex-1">
-          <h3 className="text-sm font-medium">Score</h3>
-          <div className="text-2xl font-bold">{version.score}</div>
+  const renderEvaluation = () => {
+    if (!evaluation) {
+      return (
+        <div className="text-gray-500 p-4 text-center">
+          No evaluation data available
         </div>
-        <div className="flex-1">
-          <h3 className="text-sm font-medium">Relative Score</h3>
-          <div className="text-2xl font-bold">{evaluation?.relativeScore || 'N/A'}</div>
-        </div>
-      </div>
+      );
+    }
 
-      <div>
-        <h3 className="text-sm font-medium mb-2">Comparison Notes</h3>
-        <div className="bg-gray-100 dark:bg-gray-800 rounded p-3">
-          <p className="text-sm">{evaluation?.comparisonNotes || 'No comparison notes available'}</p>
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center space-x-4">
+          <div className="flex-1">
+            <h3 className="text-sm font-medium">Score</h3>
+            <div className="text-2xl font-bold">{version.score}</div>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-medium">Relative Score</h3>
+            <div className="text-2xl font-bold">{evaluation.relativeScore || 'N/A'}</div>
+          </div>
         </div>
-      </div>
 
-      <div>
-        <h3 className="text-sm font-medium mb-2">Strengths & Weaknesses</h3>
-        <div className="bg-gray-100 dark:bg-gray-800 rounded p-3">
-          <p className="text-sm">{evaluation?.strengthsAndWeaknesses || 'No analysis available'}</p>
+        <div>
+          <h3 className="text-sm font-medium mb-2">Analysis</h3>
+          <div className="space-y-2">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded p-3">
+              <h4 className="text-xs font-medium mb-1">Concept Alignment</h4>
+              <p className="text-sm">{evaluation.analysis.conceptAlignment}</p>
+            </div>
+            <div className="bg-gray-100 dark:bg-gray-800 rounded p-3">
+              <h4 className="text-xs font-medium mb-1">Contextual Accuracy</h4>
+              <p className="text-sm">{evaluation.analysis.contextualAccuracy}</p>
+            </div>
+            <div className="bg-gray-100 dark:bg-gray-800 rounded p-3">
+              <h4 className="text-xs font-medium mb-1">Completeness</h4>
+              <p className="text-sm">{evaluation.analysis.completeness}</p>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div>
-        <h3 className="text-sm font-medium mb-2">Parent Comparison</h3>
-        <div className="bg-gray-100 dark:bg-gray-800 rounded p-3">
-          <p className="text-sm">{evaluation?.parentComparison || 'No parent comparison available'}</p>
+        <div>
+          <h3 className="text-sm font-medium mb-2">Improvements</h3>
+          <div className="bg-gray-100 dark:bg-gray-800 rounded p-3">
+            <p className="text-sm">{evaluation.analysis.improvements}</p>
+          </div>
         </div>
+
+        <div>
+          <h3 className="text-sm font-medium mb-2">Strengths & Weaknesses</h3>
+          <div className="bg-gray-100 dark:bg-gray-800 rounded p-3">
+            <p className="text-sm">{evaluation.strengthsAndWeaknesses}</p>
+          </div>
+        </div>
+
+        {evaluation.parentComparison && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Parent Comparison</h3>
+            <div className="bg-gray-100 dark:bg-gray-800 rounded p-3">
+              <p className="text-sm">{evaluation.parentComparison}</p>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderRawEvaluation = () => (
     <div className="space-y-4">

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Node, Edge } from 'reactflow';
 import { persist } from 'zustand/middleware';
+import { EvaluationData } from '../utils/promptOptimizer';
 
 export interface NodePosition {
   x: number;
@@ -16,11 +17,7 @@ export interface PromptVersion {
   feedback?: string;
   versionName?: string;
   position?: { x: number; y: number };
-  evaluation?: {
-    relativeScore: number;
-    comparisonNotes: string;
-    improvementSuggestions: string;
-  };
+  evaluation?: EvaluationData;
   rawEvaluationResult?: string;
 }
 
@@ -102,9 +99,25 @@ export const usePromptFinderStore = create<PromptFinderState>()(
             };
           }
 
-          // For non-initial versions, add as normal
+          // For non-initial versions, ensure they have a valid parent ID
+          const newVersion = { ...version };
+          if (!newVersion.parentId) {
+            // If no parent ID is specified, use the most recent version as parent
+            const lastVersion = state.promptVersions[state.promptVersions.length - 1];
+            newVersion.parentId = lastVersion ? lastVersion.id : 'initial';
+          }
+
+          // Ensure the parent exists
+          const parentExists = newVersion.parentId === 'initial' || 
+            state.promptVersions.some(v => v.id === newVersion.parentId);
+          
+          if (!parentExists) {
+            console.warn(`Parent version ${newVersion.parentId} not found for version ${newVersion.id}`);
+            newVersion.parentId = 'initial'; // Fallback to initial if parent not found
+          }
+
           return {
-            promptVersions: [...state.promptVersions, version],
+            promptVersions: [...state.promptVersions, newVersion],
           };
         }),
         

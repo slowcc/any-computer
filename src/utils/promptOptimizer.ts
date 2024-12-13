@@ -51,18 +51,22 @@ export interface OptimizationResult {
 }
 
 export interface EvaluationData {
-  relativeScore: number;
-  comparisonNotes: string;
-  improvementSuggestions: string;
+  relativeScore: number;  // Percentage score relative to best version in group
+  absoluteScore: number;  // Raw evaluation score from 0-100
+  analysis: {
+    conceptAlignment: string;    // How well core concepts align
+    contextualAccuracy: string;  // Accuracy of context and domain details
+    completeness: string;        // Coverage of expected details
+    improvements: string;      // Specific improvement suggestions
+  };
+  strengthsAndWeaknesses: string;     // Strengths and weaknesses analysis
+  parentComparison?: string;     // Comparison with parent version if exists
 }
 
 export interface PromptVersionWithEvaluation extends PromptVersion {
-  evaluation: {
-    relativeScore: number;
-    comparisonNotes: string;
-    improvementSuggestions: string;
-  };
   rawEvaluationResult: string;
+  evaluation: EvaluationData;
+  explanation?: string;  // Optional explanation of the version
 }
 
 interface VerificationResult {
@@ -74,19 +78,18 @@ interface VerificationResult {
 export class PromptOptimizer {
   private config: OptimizationConfig;
   private runPrompt: (prompt: string) => Promise<string>;
-  private allVersions: PromptVersionWithEvaluation[];
   private addLog: (message: string, response?: string, title?: string, step?: number, substep?: number) => void;
-  private addPromptVersion: (version: PromptVersionWithEvaluation) => void;
+  private addPromptVersion: (version: PromptVersion) => void;
+  private allVersions: PromptVersionWithEvaluation[] = [];
 
   constructor(
     config: OptimizationConfig,
     runPrompt: (prompt: string) => Promise<string>,
     addLog: (message: string, response?: string, title?: string, step?: number, substep?: number) => void,
-    addPromptVersion: (version: PromptVersionWithEvaluation) => void
+    addPromptVersion: (version: PromptVersion) => void
   ) {
     this.config = config;
     this.runPrompt = runPrompt;
-    this.allVersions = [];
     this.addLog = addLog;
     this.addPromptVersion = addPromptVersion;
   }
@@ -203,31 +206,34 @@ export class PromptOptimizer {
     }
     this.addLog("Received template execution result", templateResult, "Execution Result", 1, 2);
 
-    const evaluationPrompt = `You are an expert evaluator. Compare the following result against the target result and provide a score from 0-100.
-Focus on semantic similarity and conceptual alignment rather than exact matches.
+    const evaluationPrompt = `You are an expert evaluator analyzing prompt template results. Compare the following result against the target result and provide a detailed evaluation.
 
-Evaluation criteria:
-1. Core concept alignment: How well the main ideas and concepts match
-2. Contextual accuracy: Appropriate context and domain-specific details
-3. Missing details: How well the result covers the expected details
-
-Give constructive feedback on how to improve the result without lossing generalizability.
-
-Target result:
+Target Result:
 ${this.config.objective}
 
-Actual result:
+Actual Result:
 ${templateResult}
 
-Respond with a valid JSON object in this exact format:
+Evaluation Criteria:
+1. Concept Alignment (0-100): How well the core ideas and concepts match
+2. Contextual Accuracy (0-100): Appropriateness of context and domain-specific details
+3. Completeness (0-100): Coverage of expected information and details
+
+Provide your evaluation in this JSON format:
 {
-  "score": number,
-  "analysis": string,
-  "improvementSuggestions": "string"
-}`;
+  "absoluteScore": number,  // Overall score (0-100)
+  "analysis": {
+    "conceptAlignment": "Detailed analysis of how well core concepts match",
+    "contextualAccuracy": "Analysis of context and domain-specific accuracy",
+    "completeness": "Analysis of coverage and completeness",
+    "improvements": "Specific improvement suggestions as a detailed paragraph"
+  },
+  "strengthsAndWeaknesses": "Comprehensive analysis of strengths and weaknesses as a detailed paragraph"
+}
+
+Focus on providing actionable insights that can help improve the template while maintaining its generalizability.`;
 
     const evaluationResponse = await this.runPrompt(evaluationPrompt);
-    let score = 0;
     let evaluationData = null;
 
     try {
@@ -239,44 +245,71 @@ Respond with a valid JSON object in this exact format:
           evaluationData = JSON5.parse(extractedJson);
         }
       }
-      if (evaluationData && typeof evaluationData.score === 'number') {
-        score = Math.round(evaluationData.score);
-      }
-    } catch (error) {
-      console.warn('Failed to parse evaluation:', error);
-      score = this.calculateHeuristicScore(templateResult, this.config.objective);
-    }
 
-    if (existingVersion) {
-      // Update existing version
-      existingVersion.prompt = prompt;
-      existingVersion.result = templateResult;
-      existingVersion.score = score;
-      existingVersion.rawEvaluationResult = evaluationResponse;
-      existingVersion.evaluation = {
-        relativeScore: existingVersion.evaluation?.relativeScore || 100,
-        comparisonNotes: evaluationData?.analysis || 'No analysis available',
-        improvementSuggestions: evaluationData?.improvementSuggestions || 'No suggestions available',
+      const version: PromptVersionWithEvaluation = {
+        id: existingVersion?.id || nanoid(),
+        prompt,
+        result: templateResult,
+        score: evaluationData?.absoluteScore || 0,
+        parentId,
+        feedback: evaluationData?.analysis?.improvements || 'No feedback available',
+        rawEvaluationResult: evaluationResponse,
+        evaluation: {
+          relativeScore: 100, // Will be calculated later in evaluateGenerationGroup
+          absoluteScore: evaluationData?.absoluteScore || 0,
+          analysis: {
+            conceptAlignment: evaluationData?.analysis?.conceptAlignment || 'No concept alignment analysis available',
+            contextualAccuracy: evaluationData?.analysis?.contextualAccuracy || 'No contextual accuracy analysis available',
+            completeness: evaluationData?.analysis?.completeness || 'No completeness analysis available',
+            improvements: evaluationData?.analysis?.improvements || 'No improvements available'
+          },
+          strengthsAndWeaknesses: evaluationData?.strengthsAndWeaknesses || 'No strengths and weaknesses analysis available',
+          parentComparison: parentId ? 'Pending parent comparison' : undefined
+        }
       };
-      return this.ensureVersionName(existingVersion);
+
+      return this.ensureVersionName(version);
+    } catch (error) {
+      console.error('Failed to parse evaluation:', error);
+      throw new Error('Failed to parse evaluation response');
+    }
+  }
+
+  private generateVersionName(version: PromptVersion, allVersions: PromptVersion[]): string {
+    // Handle initial version
+    if (version.parentId === 'initial') {
+      return 'Initial';
+    }
+    
+    if (!version.parentId) {
+      const rootVersions = allVersions.filter(v => !v.parentId || v.parentId === 'initial');
+      const index = rootVersions.findIndex(v => v.id === version.id) + 1;
+      return `V${index}`;
     }
 
-    // Create new version with required evaluation property
-    const version: PromptVersionWithEvaluation = this.ensureVersionName({
-      id: nanoid(),
-      prompt,
-      result: templateResult,
-      score,
-      parentId,
-      feedback: evaluationData?.explanation || 'No explanation available',
-      rawEvaluationResult: evaluationResponse,
-      evaluation: {
-        relativeScore: 100,
-        comparisonNotes: evaluationData?.analysis || 'No analysis available',
-        improvementSuggestions: evaluationData?.improvementSuggestions || 'No suggestions available',
-      }
-    } as PromptVersionWithEvaluation);
+    // Find parent version
+    const parent = allVersions.find(v => v.id === version.parentId);
+    if (!parent) {
+      console.warn(`Parent not found for version ${version.id}, using fallback name`);
+      return `V${version.id.substring(0, 4)}`;
+    }
 
+    // Get parent name first
+    if (!parent.versionName) {
+      parent.versionName = this.generateVersionName(parent, allVersions);
+    }
+
+    // Find siblings and determine index
+    const siblings = allVersions.filter(v => v.parentId === version.parentId);
+    const index = siblings.findIndex(v => v.id === version.id) + 1;
+    
+    return `${parent.versionName}.${index}`;
+  }
+
+  private ensureVersionName<T extends PromptVersion>(version: T): T {
+    if (!version.versionName) {
+      version.versionName = this.generateVersionName(version, [...this.allVersions, version]);
+    }
     return version;
   }
 
@@ -342,7 +375,6 @@ We can see that the core connection between the variable and objective is ...
 }
 \`\`\`
 </Variations>
-</ExampleOutput>
 `;
 
     try {
@@ -377,7 +409,7 @@ We can see that the core connection between the variable and objective is ...
           }
 
           // Create new version with pending evaluation
-          const version: PromptVersionWithEvaluation = this.ensureVersionName({
+          const version: PromptVersionWithEvaluation = {
             id: nanoid(),
             prompt: variation.prompt,
             parentId: parent.id,
@@ -387,15 +419,25 @@ We can see that the core connection between the variable and objective is ...
             rawEvaluationResult: '',
             evaluation: {
               relativeScore: 0,
-              comparisonNotes: 'Pending evaluation',
-              improvementSuggestions: 'Pending evaluation',
+              absoluteScore: 0,
+              analysis: {
+                conceptAlignment: 'Pending evaluation',
+                contextualAccuracy: 'Pending evaluation',
+                completeness: 'Pending evaluation',
+                improvements: 'Pending evaluation'
+              },
+              strengthsAndWeaknesses: 'Pending evaluation',
+              parentComparison: 'Pending evaluation'
             }
-          } as PromptVersionWithEvaluation);
+          };
+
+          // Ensure version name is set before adding
+          const namedVersion = this.ensureVersionName(version);
 
           // Add version to store immediately
-          this.addPromptVersion(version);
-          this.allVersions.push(version);
-          results.push(version);
+          this.addPromptVersion(namedVersion);
+          this.allVersions.push(namedVersion);
+          results.push(namedVersion);
         }
 
         // Evaluate versions after they're all added
@@ -416,48 +458,19 @@ We can see that the core connection between the variable and objective is ...
     }
   }
 
-  private generateVersionName(version: PromptVersion, allVersions: PromptVersion[]): string {
-    // Handle initial version
-    if (version.parentId === 'initial') {
-      return 'Initial Template';
-    }
-    
-    if (!version.parentId) {
-      const rootVersions = allVersions.filter(v => !v.parentId || v.parentId === 'initial');
-      const index = rootVersions.findIndex(v => v.id === version.id);
-      return `v${Math.max(0, index)}`;
-    }
-
-    // Find parent version
-    const parent = allVersions.find(v => v.id === version.parentId);
-    if (!parent) {
-      console.warn(`Parent not found for version ${version.id}, using fallback name`);
-      return `v${version.id.substring(0, 4)}`;
-    }
-
-    // Ensure parent has a version name
-    const parentName = parent.versionName || this.generateVersionName(parent, allVersions);
-    
-    // Find siblings and determine index
-    const siblings = allVersions.filter(v => v.parentId === version.parentId);
-    const index = siblings.findIndex(v => v.id === version.id) + 1;
-    
-    return `${parentName}.${index}`;
-  }
-
-  private ensureVersionName<T extends PromptVersion>(version: T): T {
-    if (!version.versionName) {
-      version.versionName = this.generateVersionName(version, this.allVersions);
-    }
-    return version;
-  }
-
   private async evaluateGenerationGroup(versions: PromptVersionWithEvaluation[]): Promise<void> {
     if (versions.length <= 1) {
       versions[0].evaluation = {
         relativeScore: 100,
-        comparisonNotes: 'Single version in group - no comparison needed',
-        improvementSuggestions: 'No improvements needed for single version'
+        absoluteScore: versions[0].score,
+        analysis: {
+          conceptAlignment: 'Single version in group - no comparison needed',
+          contextualAccuracy: 'Single version analysis not applicable',
+          completeness: 'Single version analysis not applicable',
+          improvements: 'No improvements needed - single version'
+        },
+        strengthsAndWeaknesses: 'Single version - no comparison available',
+        parentComparison: 'No parent comparison available'
       };
       return;
     }
@@ -470,22 +483,26 @@ We can see that the core connection between the variable and objective is ...
       const version = versions[i];
       const relativeScore = Math.round((version.score / bestScore) * 100);
       
-      // Compare with previous version if exists
       const prevVersion = i > 0 ? versions[i - 1] : null;
       const nextVersion = i < versions.length - 1 ? versions[i + 1] : null;
       
-      const comparisonNotes = prevVersion 
-        ? `Score difference from best: ${bestScore - version.score} points`
-        : 'Best performing version in group';
-        
-      const improvementSuggestions = nextVersion 
-        ? `Could improve by ${version.score - nextVersion.score} points to match next best version`
-        : 'Consider generating new variations to improve further';
-
       version.evaluation = {
         relativeScore,
-        comparisonNotes,
-        improvementSuggestions
+        absoluteScore: version.score,
+        analysis: {
+          conceptAlignment: prevVersion ? 
+            `Score difference from best: ${bestScore - version.score} points` :
+            'Best performing version in group',
+          contextualAccuracy: 'Pending detailed analysis',
+          completeness: 'Pending detailed analysis',
+          improvements: nextVersion ? 
+            `Could improve by ${version.score - nextVersion.score} points to match next best version` :
+            'Consider generating new variations to improve further'
+        },
+        strengthsAndWeaknesses: prevVersion ? 
+          `Relative performance: ${relativeScore}% of best score` :
+          'Best performing version in current group',
+        parentComparison: nextVersion ? 'Compare with next best version' : 'No next best version available'
       };
     }
   }
@@ -495,7 +512,7 @@ We can see that the core connection between the variable and objective is ...
       this.addLog("Starting optimization process", undefined, "Optimization Start", 1);
       
       // Step 1: Create and evaluate initial template
-      const initialVersion: PromptVersionWithEvaluation = this.ensureVersionName({
+      const initialVersion: PromptVersionWithEvaluation = {
         id: nanoid(),
         prompt: this.config.initialPrompt,
         parentId: 'initial',
@@ -505,10 +522,17 @@ We can see that the core connection between the variable and objective is ...
         rawEvaluationResult: '',
         evaluation: {
           relativeScore: 100,
-          comparisonNotes: 'Initial template serving as the baseline',
-          improvementSuggestions: 'Generate variations to improve the template'
+          absoluteScore: 0,
+          analysis: {
+            conceptAlignment: 'Initial template serving as the baseline',
+            contextualAccuracy: 'Pending evaluation',
+            completeness: 'Pending evaluation',
+            improvements: 'Initial template - Generate variations to improve'
+          },
+          strengthsAndWeaknesses: 'Initial template - Pending optimization',
+          parentComparison: 'No parent comparison available'
         }
-      } as PromptVersionWithEvaluation);
+      };
 
       const evaluatedInitialVersion = await this.evaluatePrompt(
         initialVersion.prompt,
