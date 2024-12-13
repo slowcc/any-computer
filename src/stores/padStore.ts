@@ -34,10 +34,6 @@ interface PadState {
   updateAnalyzedOutput: (tabId: string, analyzedOutput: { line: number; text: string }[]) => void
   setIsRefined: (tabId: string, isRefined: boolean) => void
   updateVariableBindings: (tabId: string, bindings: TabContent['variableBindings']) => void
-  currentTheme: string;
-  setTheme: (theme: 'light' | 'dark' | 'auto') => void;
-  apiKeySettings: Record<string, string>;
-  setApiKeySettings: (settings: Record<string, string>) => void;
 }
 
 const createInitialState = (): Pick<PadState, 'activeTabId' | 'allTabIds' | 'tabContents'> => {
@@ -134,16 +130,10 @@ export const usePadStore = create<PadState>()(
           }
         }
       })),
-      currentTheme: 'light',
-      setTheme: (theme) => set({ currentTheme: theme }),
-      apiKeySettings: {},
-      setApiKeySettings: (settings) => set({ apiKeySettings: settings }),
     }),
     {
       name: 'pad-storage',
       partialize: (state) => ({
-        currentTheme: state.currentTheme,
-        apiKeySettings: state.apiKeySettings,
         activeTabId: state.activeTabId,
         allTabIds: state.allTabIds,
         tabContents: state.tabContents,

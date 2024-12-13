@@ -1,5 +1,5 @@
 import React, { useState, useEffect, use } from 'react';
-import { usePadStore } from '../stores/padStore';
+import { useAppStore } from '../stores/appStore';
 import LogoEN from "../assets/any.svg?react";
 import LogoCN from "../assets/any_cn.svg?react";
 import MaterialIcon from './MaterialIcon';
@@ -7,7 +7,13 @@ import RadioSwitch from './RadioSwitch';
 import { AppContext } from '../contexts/AppContext';
 
 const PadHeader: React.FC = () => {
-  const { apiKeySettings, setApiKeySettings, currentTheme, setTheme } = usePadStore();
+  const { 
+    apiKeySettings, 
+    setApiKey, 
+    currentTheme, 
+    setTheme 
+  } = useAppStore();
+  
   const [isEditingApiKey, setIsEditingApiKey] = useState(false);
   const [tempApiKey, setTempApiKey] = useState(apiKeySettings['Gemini'] || '');
   const [isChineseLang, setIsChineseLang] = useState(false);
@@ -25,7 +31,7 @@ const PadHeader: React.FC = () => {
   };
 
   const handleApiKeySave = () => {
-    setApiKeySettings({ ...apiKeySettings, 'Gemini': tempApiKey });
+    setApiKey('Gemini', tempApiKey);
     setIsEditingApiKey(false);
   };
 

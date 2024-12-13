@@ -250,3 +250,8 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 .animate-custom-spin {
   animation: custom-spin 3s linear infinite;
 }
+
+
+.react-flow__attribution {
+  display: none !important;
+}

@@ -6,20 +6,21 @@ import RadioSwitch from '../components/RadioSwitch';
 import RunResultDisplay from '../components/RunResultDisplay';
 import PadTab from '../components/PadTab';
 import { AppContext } from '../contexts/AppContext';
+import { useAppStore } from '../stores/appStore';
 import { usePadStore } from '../stores/padStore';
 import { useShallow } from 'zustand/react/shallow';
 
 const PadContent: React.FC<{ tabId: string }> = ({ tabId }) => {
   const [viewMode, setViewMode] = useState<'input' | 'code'>('input');
-  const { apiKeySettings, setApiKeySettings } = usePadStore(useShallow((state) => ({
+  const { apiKeySettings, setApiKey } = useAppStore(useShallow((state) => ({
     apiKeySettings: state.apiKeySettings,
-    setApiKeySettings: state.setApiKeySettings,
+    setApiKey: state.setApiKey,
   })));
+  const { tabContents, updateTabContent } = usePadStore();
   const { theme } = use(AppContext);
   const [tempApiKey, setTempApiKey] = useState('');
   const [hasRateLimitError, setHasRateLimitError] = useState(false);
 
-  const { tabContents, updateTabContent } = usePadStore();
   const activeTabContent = tabContents[tabId] || { input: '', code: '', logMessages: [], analyzedOutput: [], executionResult: undefined };
 
   const { result, status, totalCost } = useCodeExecution(
@@ -51,7 +52,7 @@ const PadContent: React.FC<{ tabId: string }> = ({ tabId }) => {
 
   const handleApiKeySave = () => {
     if (tempApiKey.trim()) {
-      setApiKeySettings({ ...apiKeySettings, 'Gemini': tempApiKey.trim() });
+      setApiKey('Gemini', tempApiKey.trim());
     }
   };
 
