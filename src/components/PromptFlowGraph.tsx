@@ -178,17 +178,28 @@ export const PromptFlowGraph: React.FC<PromptFlowGraphProps> = ({
   };
 
   const createGraphLayout = useCallback(() => {
-    const VERTICAL_SPACING = 150;
+    const VERTICAL_SPACING = 200;
     const NODE_WIDTH = 180;
     const NODE_PADDING = 40;
+    const HORIZONTAL_OFFSET = 250; // Offset for child groups to the left
+    const PARENT_GROUP_SPACING = 300; // Increased spacing between parent groups
 
     const nodesByGeneration: { [key: number]: PromptVersionWithEvaluation[] } = {};
+    const nodesByParent: { [key: string]: PromptVersionWithEvaluation[] } = {};
+
+    // Group nodes by generation and parent
     versions.forEach(version => {
       const { generation } = getGenerationInfo(version, versions);
       if (!nodesByGeneration[generation]) {
         nodesByGeneration[generation] = [];
       }
       nodesByGeneration[generation].push(version);
+
+      const parentId = version.parentId || 'root';
+      if (!nodesByParent[parentId]) {
+        nodesByParent[parentId] = [];
+      }
+      nodesByParent[parentId].push(version);
     });
 
     const newNodes: Node[] = versions.map((version) => {
@@ -196,7 +207,8 @@ export const PromptFlowGraph: React.FC<PromptFlowGraphProps> = ({
       const { generation, siblingIndex, totalSiblings } = getGenerationInfo(version, versions);
 
       if (version.id === 'initial') {
-        position = { x: 0, y: 0 };
+        const storedPosition = usePromptFinderStore.getState().initialTemplatePosition;
+        position = storedPosition || { x: 0, y: 0 };
       } else if (version.position) {
         position = version.position;
       } else {
@@ -204,11 +216,52 @@ export const PromptFlowGraph: React.FC<PromptFlowGraphProps> = ({
         
         let xPos;
         if (parentVersion) {
-          const parentX = parentVersion.position?.x || 0;
-          const totalWidth = (totalSiblings * (NODE_WIDTH + NODE_PADDING));
-          const startX = parentX - (totalWidth / 2) + (NODE_WIDTH / 2);
-          xPos = startX + (siblingIndex * (NODE_WIDTH + NODE_PADDING));
+          // Get all nodes in the same generation
+          const nodesInGeneration = nodesByGeneration[generation] || [];
+          
+          // Group nodes by their parent
+          const nodesByParent = nodesInGeneration.reduce((acc, node) => {
+            if (!acc[node.parentId || '']) acc[node.parentId || ''] = [];
+            acc[node.parentId || ''].push(node);
+            return acc;
+          }, {} as Record<string, typeof nodesInGeneration>);
+          
+          if (generation === 1) {
+            // For first generation, center all nodes relative to initial template
+            const totalNodes = nodesInGeneration.length;
+            const totalWidth = totalNodes * (NODE_WIDTH + NODE_PADDING);
+            const startX = -(totalWidth / 2) + (NODE_WIDTH / 2);
+            xPos = startX + (siblingIndex * (NODE_WIDTH + NODE_PADDING));
+          } else {
+            // For subsequent generations, position relative to parent with left offset
+            const parentNode = versions.find(v => v.id === version.parentId);
+            const parentInfo = parentNode ? getGenerationInfo(parentNode, versions) : { generation: 0, siblingIndex: 0 };
+            
+            // Get parent's base position (either actual or calculated)
+            let parentBaseX;
+            if (parentInfo.generation === 1) {
+              const totalFirstGen = nodesByGeneration[1]?.length || 1;
+              const firstGenTotalWidth = totalFirstGen * (NODE_WIDTH + NODE_PADDING);
+              const firstGenStartX = -(firstGenTotalWidth / 2) + (NODE_WIDTH / 2);
+              parentBaseX = firstGenStartX + (parentInfo.siblingIndex * (NODE_WIDTH + NODE_PADDING));
+            } else {
+              const parentVersion = versions.find(v => v.id === version.parentId);
+              parentBaseX = parentVersion?.position?.x || 0;
+            }
+
+            // Calculate position within current parent's child group
+            const siblings = nodesByParent[version.parentId || ''];
+            const siblingIndex = siblings.indexOf(version);
+            const groupWidth = siblings.length * (NODE_WIDTH + NODE_PADDING);
+            
+            // Position each child group to the left of their parent
+            const leftOffset = HORIZONTAL_OFFSET * (generation - 1);
+            const startX = parentBaseX - leftOffset - (groupWidth / 2);
+            
+            xPos = startX + (siblingIndex * (NODE_WIDTH + NODE_PADDING));
+          }
         } else {
+          // This case handles nodes without parents (should be rare/none except initial)
           xPos = siblingIndex * (NODE_WIDTH + NODE_PADDING);
         }
 
@@ -260,6 +313,18 @@ export const PromptFlowGraph: React.FC<PromptFlowGraphProps> = ({
     });
 
     const newEdges = versions
+      // First ensure we don't have duplicate parent-child relationships
+      .reduce((uniqueVersions, version) => {
+        const existingVersion = uniqueVersions.find(v => 
+          v.parentId === version.parentId && v.id === version.id
+        );
+        if (!existingVersion) {
+          uniqueVersions.push(version);
+        } else {
+          console.warn(`Duplicate parent-child relationship detected: parent=${version.parentId}, child=${version.id}`);
+        }
+        return uniqueVersions;
+      }, [] as PromptVersionWithEvaluation[])
       .filter(version => {
         // Filter out versions without valid parent relationships
         if (version.id === 'initial') return false;
@@ -270,7 +335,7 @@ export const PromptFlowGraph: React.FC<PromptFlowGraphProps> = ({
         return sourceExists && targetExists;
       })
       .map(version => ({
-        id: `${version.parentId}-${version.id}`,
+        id: `${version.parentId}-${version.id}`, // Now safe to use simple IDs since we ensure no duplicates
         source: version.parentId,
         target: version.id,
         sourceHandle: `${version.parentId}-source`,

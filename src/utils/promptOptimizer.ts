@@ -1,7 +1,6 @@
 import { PromptVersion } from '../stores/promptFinderStore';
-import JSON5 from 'json5';
 import { nanoid } from 'nanoid';
-import { extractCodeBlock, extractTag } from './responseUtils';
+import { extractCodeBlock, extractTag, safeJSONParse } from './responseUtils';
 
 export const IMPROVEMENT_SYSTEM_PROMPT = `You are a prompt template optimization assistant. Your task is to analyze and improve prompt templates while preserving their variables.
 
@@ -238,11 +237,11 @@ Focus on providing actionable insights that can help improve the template while 
 
     try {
       if (evaluationResponse.trim().startsWith('{')) {
-        evaluationData = JSON5.parse(evaluationResponse);
+        evaluationData = safeJSONParse(evaluationResponse);
       } else {
         const extractedJson = extractCodeBlock(evaluationResponse, 'json');
         if (extractedJson) {
-          evaluationData = JSON5.parse(extractedJson);
+          evaluationData = safeJSONParse(extractedJson);
         }
       }
 
@@ -335,11 +334,21 @@ ${this.config.objective}
 Current Result:
 ${parent.result}
 
-Generate exactly ${count} variations.
+Parent Template Evaluation:
+- Strengths and Weaknesses: ${parent.evaluation.strengthsAndWeaknesses}
+- Suggested Improvements: ${parent.evaluation.analysis.improvements}
+- Concept Alignment Score: ${parent.evaluation.absoluteScore}
+- Areas needing improvement:
+  * Concept Alignment: ${parent.evaluation.analysis.conceptAlignment}
+  * Contextual Accuracy: ${parent.evaluation.analysis.contextualAccuracy}
+  * Completeness: ${parent.evaluation.analysis.completeness}
 
-First, write your analaysis on the inherent connection between the given Variables and the Expected Result in <Analysis> tag.
+Your variations MUST address the improvement areas identified in the parent's evaluation.
+Generate exactly ${count} variations that specifically target these improvements while maintaining the template's strengths.
 
-Then create your variations based on the analysis and the original template.
+First, write your analysis on the inherent connection between the given Variables and the Expected Result in <Analysis> tag.
+
+Then create your variations based on the analysis, the original template, and the parent's evaluation feedback.
 
 Respond with the variations in this JSON format wrapped in <Variations> tag:
 <Variations>
@@ -354,9 +363,13 @@ Respond with the variations in this JSON format wrapped in <Variations> tag:
 }
 \`\`\`
 
+REMEMBER: The template MUST NOT include any direct information from the variables and expected result.
+
+Beacuse we do not want a template that is too specific to the variables and expected result.
+
 <ExampleOutput>
 <Analysis>
-Lets take a closer look at the varibales and the expected result...
+Lets take a closer look at the variables and the expected result...
 We can see that the core connection between the variable and objective is ...
 </Analysis>
 <Variations>
@@ -380,11 +393,11 @@ We can see that the core connection between the variable and objective is ...
 
       try {
         if (extractTag(response, 'Variations') && extractTag(response, 'Variations')?.trim().startsWith('{')) {
-          optimization = JSON5.parse(extractTag(response, 'Variations')!);
+          optimization = safeJSONParse(extractTag(response, 'Variations')!);
         } else {
           const extractedJson = extractCodeBlock(response, 'json');
           if (extractedJson) {
-            optimization = JSON5.parse(extractedJson);
+            optimization = safeJSONParse(extractedJson);
           } else {
             throw new Error('Invalid optimization response format');
           }

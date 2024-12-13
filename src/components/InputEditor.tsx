@@ -18,7 +18,7 @@ const InputEditor: React.FC<InputEditorProps> = ({
   activeCards,
   onInputChange,
 }) => {
-  const [variableFormHeight, setVariableFormHeight] = useState(100);
+  const [variableFormHeight, setVariableFormHeight] = useState(250);
   const [mode] = useState<ExperimentMode>('lockInput');
   const [inputMode, setInputMode] = useState<'json' | 'form'>('json');
 
@@ -64,7 +64,7 @@ const InputEditor: React.FC<InputEditorProps> = ({
       </div>
       {inputMode === 'json' ? (
         <Editor
-          minHeight="100px"
+          minHeight="200px"
           value={lockedInput}
           language="json"
           onChange={onInputChange}
@@ -84,7 +84,7 @@ const InputEditor: React.FC<InputEditorProps> = ({
     <div className="px-3 mb-4">
       <div className="w-full bg-bg-primary rounded border border-border-tertiary mb-2 overflow-hidden">
         <ResizableContainer
-          minHeight={100}
+          minHeight={250}
           maxHeight={400}
           height={variableFormHeight}
           onHeightChange={setVariableFormHeight}
