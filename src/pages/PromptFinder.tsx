@@ -11,6 +11,7 @@ import JSON5 from 'json5';
 import NodeDetails from '../components/NodeDetails';
 import { usePromptOptimization } from '../hooks/usePromptOptimization';
 import { OptimizationConfig, PromptVersionWithEvaluation } from '../utils/promptOptimizer';
+import { PromptOptimizer } from '../utils/promptOptimizer';
 
 interface OptimizationLog {
   timestamp: string;
@@ -110,31 +111,69 @@ const PromptFinderContent: React.FC = () => {
   };
 
   const handleOptimizeRequest = async (parentVersion: PromptVersion) => {
-    const vars = JSON5.parse(variables);
-    const versionWithEval: PromptVersionWithEvaluation = {
-      ...parentVersion,
-      rawEvaluationResult: parentVersion.rawEvaluationResult || '',
-      explanation: 'Version optimized from parent template',
-      evaluation: {
-        relativeScore: 100,
-        absoluteScore: parentVersion.score,
-        analysis: {
-          conceptAlignment: 'Base version for optimization',
-          contextualAccuracy: 'Starting point for new optimization branch',
-          completeness: 'Base template analysis',
-          improvements: 'Pending optimization'
+    try {
+        const vars = JSON5.parse(variables);
+        
+        // Create optimizer instance
+        const optimizer = new PromptOptimizer({
+            initialPrompt: parentVersion.prompt,
+            objective,
+            variables: vars,
+            apiKey: apiKeySettings.Gemini || ''
+        }, 
+        async (prompt: string) => {
+            const response = await runPrompt(
+                [{ role: 'user', content: prompt }],
+                { 
+                    providers: [{ 
+                        provider: 'Gemini', 
+                        model: 'gemini-2.0-flash-exp',
+                        apiKey: apiKeySettings.Gemini || ''
+                    }],
+                    skipVersioning: true
+                }
+            );
+            return response || '';
         },
-        strengthsAndWeaknesses: 'Original template - Not yet optimized',
-        parentComparison: 'Root of new optimization branch'
-      }
-    };
-    
-    await optimizePrompt({
-      initialPrompt: parentVersion.prompt,
-      objective,
-      variables: vars,
-      apiKey: apiKeySettings.Gemini || ''
-    }, versionWithEval);
+        (message: string, response?: string, title?: string, step?: number, substep?: number) => {
+            setOptimizationLogs(prev => [...prev, {
+                timestamp: new Date().toLocaleTimeString(),
+                message,
+                response,
+                title,
+                step,
+                substep,
+                isExpanded: false
+            }]);
+        },
+        addPromptVersion
+        );
+
+        // Generate offspring
+        const result = await optimizer.generateOffspring({
+            ...parentVersion,
+            rawEvaluationResult: parentVersion.rawEvaluationResult || '',
+            evaluation: parentVersion.evaluation || {
+                relativeScore: 100,
+                absoluteScore: parentVersion.score,
+                analysis: {
+                    conceptAlignment: 'Base version for optimization',
+                    contextualAccuracy: 'Starting point for new optimization branch',
+                    completeness: 'Base template analysis',
+                    improvements: 'Pending optimization'
+                },
+                strengthsAndWeaknesses: 'Original template - Not yet optimized',
+                parentComparison: 'Root of new optimization branch'
+            }
+        });
+
+        if (result.error) {
+            setError(result.error);
+        }
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError(`Failed to optimize: ${errorMessage}`);
+    }
   };
 
   const renderLogs = (logs: OptimizationLog[]) => {

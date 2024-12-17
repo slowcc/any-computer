@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Node, Edge } from 'reactflow';
 import { persist } from 'zustand/middleware';
 import { EvaluationData } from '../utils/promptOptimizer';
+import { versionUtils } from '../utils/versionUtils';
 
 export interface NodePosition {
   x: number;
@@ -15,7 +16,6 @@ export interface PromptVersion {
   score: number;
   parentId?: string;
   feedback?: string;
-  versionName?: string;
   position?: { x: number; y: number };
   evaluation?: EvaluationData;
   rawEvaluationResult?: string;
@@ -70,24 +70,19 @@ export const usePromptFinderStore = create<PromptFinderState>()(
       
       addPromptVersion: (version) =>
         set((state) => {
-          if (!version.versionName) {
-            console.warn('Attempted to add version without version name:', version);
-            return state; // Don't add versions without names
-          }
+          if (!version) return state;
 
-          // If this is an initial version (either by parentId or versionName)
-          if (version.parentId === 'initial' || version.versionName === 'Initial Template') {
+          // If this is an initial version
+          if (versionUtils.isInitialVersion(version)) {
             // Check if we already have an initial version
-            const existingInitial = state.promptVersions.find(v => 
-              v.parentId === 'initial' || v.versionName === 'Initial Template'
-            );
+            const existingInitial = state.promptVersions.find(versionUtils.isInitialVersion);
             
             if (existingInitial) {
               // Update the existing initial version instead of adding a new one
               return {
                 promptVersions: state.promptVersions.map(v => 
-                  (v.parentId === 'initial' || v.versionName === 'Initial Template')
-                    ? { ...v, ...version, id: 'initial' }
+                  versionUtils.isInitialVersion(v)
+                    ? { ...v, ...version, id: 'initial', parentId: 'initial' }
                     : v
                 ),
               };
@@ -95,7 +90,7 @@ export const usePromptFinderStore = create<PromptFinderState>()(
             
             // If no initial version exists, add it with id 'initial'
             return {
-              promptVersions: [...state.promptVersions, { ...version, id: 'initial' }],
+              promptVersions: [...state.promptVersions, { ...version, id: 'initial', parentId: 'initial' }],
             };
           }
 
@@ -118,8 +113,8 @@ export const usePromptFinderStore = create<PromptFinderState>()(
             state.promptVersions.some(v => v.id === newVersion.parentId);
           
           if (!parentExists) {
-            console.warn(`Parent version ${newVersion.parentId} not found for version ${newVersion.id}`);
-            newVersion.parentId = 'initial'; // Fallback to initial if parent not found
+            // If parent doesn't exist, make it a first generation version
+            newVersion.parentId = 'initial';
           }
 
           return {
@@ -142,16 +137,12 @@ export const usePromptFinderStore = create<PromptFinderState>()(
       resetToInitialState: () => 
         set((state) => ({
           ...state,
-          promptVersions: state.promptVersions.filter(version => 
-            version.id === 'initial' || 
-            version.parentId === 'initial' || 
-            version.versionName === 'Initial Template'
-          ).map(version => ({
-            ...version,
-            id: 'initial',
-            parentId: 'initial',
-            versionName: 'Initial Template'
-          })).slice(0, 1), // Only keep one initial version
+          promptVersions: state.promptVersions.filter(versionUtils.isInitialVersion)
+            .map(version => ({
+              ...version,
+              id: 'initial',
+              parentId: 'initial'
+            })).slice(0, 1), // Only keep one initial version
           selectedVersion: 'initial',
           nodes: [],
           edges: [],
@@ -178,3 +169,5 @@ export const usePromptFinderStore = create<PromptFinderState>()(
     }
   )
 ); 
+
+export { versionUtils };
