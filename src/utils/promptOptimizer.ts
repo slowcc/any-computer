@@ -1,4 +1,4 @@
-import { PromptVersion } from '../stores/promptFinderStore';
+import { PromptVersion, versionUtils } from '../stores/promptFinderStore';
 import { nanoid } from 'nanoid';
 import { extractCodeBlock, extractTag, safeJSONParse } from './responseUtils';
 
@@ -19,7 +19,6 @@ Generate exactly 4 template variations using different techniques:
 - Structural improvement: Reorganize the template structure for better flow and clarity
 - Clarity enhancement: Make instructions and requirements more explicit and unambiguous
 - Context optimization: Improve how context and background information is presented
-- Instruction refinement: Enhance the specificity and effectiveness of directives
 
 Respond in the following JSON format:
 {
@@ -188,6 +187,36 @@ export class PromptOptimizer {
     return result;
   }
 
+  private computeVersionName(version: PromptVersion, allVersions: PromptVersion[]): string {
+    // Handle initial version
+    if (version.id === 'initial') {
+        return 'Initial';
+    }
+
+    // Handle first generation (children of initial)
+    if (version.parentId === 'initial') {
+        const rootVersions = allVersions.filter(v => v.parentId === 'initial');
+        const index = rootVersions.findIndex(v => v.id === version.id);
+        return `V${index + 1}`;
+    }
+    
+    // Find parent version
+    const parent = allVersions.find(v => v.id === version.parentId);
+    if (!parent) {
+        console.warn(`Parent not found for version ${version.id}, using fallback name`);
+        return `V1`;
+    }
+
+    // Find siblings and determine index
+    const siblings = allVersions.filter(v => v.parentId === version.parentId);
+    const index = siblings.findIndex(v => v.id === version.id);
+    
+    // Get parent's version name (recursively if needed)
+    const parentVersionName = this.computeVersionName(parent, allVersions);
+    const parentVersion = parentVersionName.replace(/^V/, '');
+    return `V${parentVersion}.${index + 1}`;
+  }
+
   private async evaluatePrompt(prompt: string, parentId?: string, existingVersion?: PromptVersionWithEvaluation): Promise<PromptVersionWithEvaluation> {
     this.addLog("Evaluating prompt variation", prompt, "Evaluation", 1);
     
@@ -254,7 +283,7 @@ Focus on providing actionable insights that can help improve the template while 
         feedback: evaluationData?.analysis?.improvements || 'No feedback available',
         rawEvaluationResult: evaluationResponse,
         evaluation: {
-          relativeScore: 100, // Will be calculated later in evaluateGenerationGroup
+          relativeScore: 100,
           absoluteScore: evaluationData?.absoluteScore || 0,
           analysis: {
             conceptAlignment: evaluationData?.analysis?.conceptAlignment || 'No concept alignment analysis available',
@@ -267,45 +296,11 @@ Focus on providing actionable insights that can help improve the template while 
         }
       };
 
-      return this.ensureVersionName(version);
+      return version;
     } catch (error) {
       console.error('Failed to parse evaluation:', error);
       throw new Error('Failed to parse evaluation response');
     }
-  }
-
-  private generateVersionName(version: PromptVersion, allVersions: PromptVersion[]): string {
-    // Handle initial version
-    if (version.id === 'initial' || version.parentId === 'initial') {
-      const rootVersions = allVersions.filter(v => v.parentId === 'initial');
-      const index = rootVersions.findIndex(v => v.id === version.id);
-      return `V${index + 1}`;
-    }
-    
-    // Find parent version
-    const parent = allVersions.find(v => v.id === version.parentId);
-    if (!parent) {
-      console.warn(`Parent not found for version ${version.id}, using fallback name`);
-      return `V${version.id.substring(0, 4)}`;
-    }
-
-    // Get parent name first
-    if (!parent.versionName) {
-      parent.versionName = this.generateVersionName(parent, allVersions);
-    }
-
-    // Find siblings and determine index
-    const siblings = allVersions.filter(v => v.parentId === version.parentId);
-    const index = siblings.findIndex(v => v.id === version.id);
-    
-    return `${parent.versionName}.${index + 1}`;
-  }
-
-  private ensureVersionName<T extends PromptVersion>(version: T): T {
-    if (!version.versionName) {
-      version.versionName = this.generateVersionName(version, [...this.allVersions, version]);
-    }
-    return version;
   }
 
   private async generateVariations(parent: PromptVersionWithEvaluation, count: number): Promise<PromptVersionWithEvaluation[]> {
@@ -314,7 +309,7 @@ Focus on providing actionable insights that can help improve the template while 
       .map(key => `{{${key}}}`)
       .join(', ');
 
-    const optimizationPrompt = `You are a prompt optimization assistant. Your task is to generate ${count} variations of the following prompt template.
+    const optimizationPrompt = `You are a prompt optimization assistant. Your task is to generate exactly ${count} variations of the following prompt template.
 Each variation should be a revision that aims to achieve the same objective but with potential improvements.
 
 IMPORTANT: You MUST preserve these variables in your variations: ${variablesList}
@@ -364,6 +359,10 @@ Respond with the variations in this JSON format wrapped in <Variations> tag:
 \`\`\`
 
 REMEMBER: The template MUST NOT include any direct information from the variables and expected result.
+Each variation should use a different optimization technique:
+1. Structural improvement: Better organization and flow
+2. Clarity enhancement: More explicit and unambiguous instructions
+3. Context optimization: Better presentation of context and requirements
 
 Beacuse we do not want a template that is too specific to the variables and expected result.
 
@@ -440,13 +439,9 @@ We can see that the core connection between the variable and objective is ...
             }
           };
 
-          // Ensure version name is set before adding
-          const namedVersion = this.ensureVersionName(version);
-
           // Add version to store immediately
-          this.addPromptVersion(namedVersion);
-          this.allVersions.push(namedVersion);
-          results.push(namedVersion);
+          this.addPromptVersion(version);
+          results.push(version);
         }
 
         // Evaluate versions after they're all added
@@ -568,7 +563,7 @@ We can see that the core connection between the variable and objective is ...
       this.addLog("Generating second generation variations", undefined, "Generation 2", 4);
       const gen2Results = [];
       for (const parent of bestGen1) {
-        this.addLog(`Generating variations for ${parent.versionName}`, undefined, "Generation 2", 4);
+        this.addLog(`Generating variations for ${this.getVersionName(parent)}`, undefined, "Generation 2", 4);
         const children = await this.generateVariations(parent, 3);
         await this.evaluateGenerationGroup(children);
         children.forEach(version => this.addPromptVersion(version));
@@ -590,5 +585,36 @@ We can see that the core connection between the variable and objective is ...
         error: errorMessage
       };
     }
+  }
+
+  public async generateOffspring(parentVersion: PromptVersionWithEvaluation): Promise<OptimizationResult> {
+    try {
+      this.addLog("Starting offspring generation", undefined, "Generation Start", 1);
+      
+      // Generate variations for the parent
+      this.addLog(`Generating variations for ${this.getVersionName(parentVersion)}`, undefined, "Generation", 2);
+      const variations = await this.generateVariations(parentVersion, 3);
+      await this.evaluateGenerationGroup(variations);
+      variations.forEach(version => this.addPromptVersion(version));
+
+      this.addLog("Offspring generation completed", undefined, "Complete", 3);
+
+      return {
+        versions: this.allVersions,
+        error: undefined
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.addLog(`Offspring generation failed: ${errorMessage}`, undefined, "Error", -1);
+      console.error('Offspring generation failed:', error);
+      return {
+        versions: this.allVersions,
+        error: errorMessage
+      };
+    }
+  }
+
+  public getVersionName(version: PromptVersion): string {
+    return this.computeVersionName(version, this.allVersions);
   }
 } 
