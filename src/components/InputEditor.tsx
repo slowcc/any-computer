@@ -11,12 +11,14 @@ interface InputEditorProps {
   lockedInput: string;
   activeCards: any[];
   onInputChange: (value: string) => void;
+  readOnly?: boolean;
 }
 
 const InputEditor: React.FC<InputEditorProps> = ({
   lockedInput,
   activeCards,
   onInputChange,
+  readOnly = false,
 }) => {
   const [variableFormHeight, setVariableFormHeight] = useState(250);
   const [mode] = useState<ExperimentMode>('lockInput');

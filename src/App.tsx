@@ -2,6 +2,7 @@ import React, { Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { Toaster } from 'sonner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
 import { Outlet, RouterProvider, createRouter, createRoute, createRootRoute } from "@tanstack/react-router";
 
@@ -83,6 +84,7 @@ function App() {
           },
         }} />
       <RouterProvider router={router} />
+      <ReactQueryDevtools initialIsOpen={false} />
     </AppContextProvider>
   </QueryClientProvider>;
 }

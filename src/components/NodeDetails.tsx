@@ -17,7 +17,8 @@ const NodeDetails: React.FC<NodeDetailsProps> = ({ version, versionIndex, parent
 
   const getVersionName = (version: PromptVersionWithEvaluation) => {
     if (version.id === 'initial') return 'Initial Template';
-    return `Version ${version.versionName || `${versionIndex + 1}`}`;
+    if ((version as any).versionName) return (version as any).versionName;
+    return `Version ${versionIndex + 1}`;
   };
 
   const renderBasicInfo = () => (

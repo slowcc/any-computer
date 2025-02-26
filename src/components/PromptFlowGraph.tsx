@@ -47,7 +47,7 @@ interface PromptNodeData {
 const nodeTypes = {
   promptNode: ({ data, selected }: { data: PromptNodeData; selected: boolean }) => {
     const store = usePromptFinderStore();
-    const versionName = versionUtils.getVersionName(data.originalVersion, store.promptVersions);
+    const versionName = (data.originalVersion as any).versionName || versionUtils.getVersionName(data.originalVersion, store.promptVersions);
     
     return (
       <div 
@@ -70,7 +70,7 @@ const nodeTypes = {
         />
         
         <div className="font-bold mb-1 text-xs">
-          {versionUtils.isInitialVersion(data.version) ? 'Initial Template' : `Version ${versionName}`}
+          {versionUtils.isInitialVersion(data.version) ? 'Initial Template' : `${versionName}`}
         </div>
         <div className="text-xs text-gray-600 mb-1">
           {data.explanation || 'No explanation available'}
@@ -185,6 +185,7 @@ export const PromptFlowGraph: React.FC<PromptFlowGraphProps> = ({
     const newNodes: Node[] = versions.map((version) => {
       const getVersionName = (version: PromptVersionWithEvaluation) => {
         if (version.id === 'initial') return 'Initial Template';
+        if ((version as any).versionName) return (version as any).versionName;
         const parent = versions.find(v => v.id === version.parentId);
         if (!parent) return `V${version.id}`;
         return `V${parent.id}.${version.id}`;
