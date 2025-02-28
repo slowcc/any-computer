@@ -40,7 +40,6 @@ export const DiffView: React.FC<DiffViewProps> = ({ oldText, newText, language =
         ]
       },
       parent: containerRef.current,
-      revertControls: false,
       highlightChanges: true,
       collapseUnchanged: { margin: 10 }
     });
