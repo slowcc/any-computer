@@ -12,7 +12,6 @@ import "./App.css";
 
 import { AppContextProvider } from "./contexts/AppContext";
 
-import Pad from "./pages/Pad";
 import PadHeader from "./components/PadHeader";
 import { PromptFinder } from "./pages/PromptFinder";
 import Login from "./pages/Login";
@@ -32,15 +31,9 @@ const rootRoute = createRootRoute({
   staleTime: Infinity,
 });
 
-const PadRoute = createRoute({
+const HomeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: Pad,
-});
-
-const PromptFinderRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/prompt-finder",
   component: () => (
     <LoginGuard>
       <PromptFinder />
@@ -55,7 +48,7 @@ const LoginRoute = createRoute({
 });
 
 const router = createRouter({
-  routeTree: rootRoute.addChildren([LoginRoute, PadRoute, PromptFinderRoute]),
+  routeTree: rootRoute.addChildren([LoginRoute, HomeRoute]),
 });
 
 const queryClient = new QueryClient();

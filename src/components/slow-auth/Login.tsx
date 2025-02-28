@@ -39,7 +39,6 @@ function Login({ defaultPath }: { defaultPath?: string }) {
 
   return (
     <div className="px-4">
-      <div>Think Slow & Solve Hard Problems</div>
       <div>
         <h2 className="mt-6 font-bold text-gray-900">Sign in</h2>
         <p className="mt-2 text-sm text-gray-600">

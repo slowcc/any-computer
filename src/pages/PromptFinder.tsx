@@ -82,7 +82,7 @@ interface OptimizationLog {
 }
 
 function useTaskState() {
-  const { taskId } = useSearch({ from: "/prompt-finder" });
+  const { taskId } = useSearch({ from: "/" });
   const navigate = useNavigate();
 
   const [variables, setVariables] = useState<string>("");
@@ -174,7 +174,7 @@ function useTaskState() {
     (data: { variables: string; initialPrompt: string; objective: string }) => {
       setForkDataInternal(data);
       navigate({
-        to: "/prompt-finder",
+        to: "/",
       });
     },
     [navigate]
@@ -213,7 +213,7 @@ const PromptFinderTaskList = () => {
           className="text-xs bg-gray-200 px-2 py-px rounded"
           onClick={async () => {
             navigate({
-              to: "/prompt-finder",
+              to: "/",
             });
           }}
         >
@@ -229,7 +229,7 @@ const PromptFinderTaskList = () => {
               task: any // TODO: add type
             ) => (
               <Link
-                to={`/prompt-finder?taskId=${task.id}`}
+                to={`/?taskId=${task.id}`}
                 key={task.id}
                 className="p-2 hover:bg-gray-200 cursor-pointer rounded transition-colors bg-gray-20 block"
               >
@@ -527,7 +527,7 @@ export const TaskOptionForm: React.FC<{
 
   const createTaskMutation = useMutation({
     mutationFn: async () => {
-      const { taskId } = await apiClient.post("/@slow/prompt-finder-program", {
+      const { taskId } = await apiClient.post("/@slow/-program", {
         input: {
           initialPrompt,
           variables: JSON5.parse(variables),
@@ -536,7 +536,7 @@ export const TaskOptionForm: React.FC<{
       });
 
       navigate({
-        to: "/prompt-finder",
+        to: "/",
         search: {
           taskId,
         },

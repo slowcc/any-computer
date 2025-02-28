@@ -8,7 +8,12 @@ import { AppContext } from "../contexts/AppContext";
 import { use } from "react";
 import { useEffect, useMemo } from 'react';
 import { Decoration } from "@codemirror/view";
-import type { TabContent } from '../stores/padStore';
+
+// Define VariableBinding type directly here instead of importing from padStore
+export type VariableBinding = {
+  variableName: string;
+  pattern: string;
+}
 
 const styleTheme = EditorView.baseTheme({
   "div:has(> &)": {
@@ -45,7 +50,7 @@ function getEditorTheme(theme: 'light' | 'dark') {
 export interface EditorProps extends Omit<ReactCodeMirrorProps, 'extensions' | 'theme' | 'basicSetup'> {
   basicSetup?: BasicSetupOptions;
   language?: string;
-  variableBindings?: TabContent['variableBindings'];
+  variableBindings?: VariableBinding[];
 }
 
 const Editor: React.FC<EditorProps> = ({ value, onChange, language, className, variableBindings = [], ...rest }) => {

@@ -42,10 +42,7 @@ export const logoutAtom = atom(null, (get, set) => {
   set(authAtom, initialState);
 });
 
-const BASE_URL =
-  process.env.NODE_ENV === "development"
-    ? "http://127.0.0.1:3000"
-    : "https://slow.land";
+const BASE_URL = "https://slow.land";
 export const API_BASE_URL = `${BASE_URL}`;
 
 interface RequestOptions extends RequestInit {
