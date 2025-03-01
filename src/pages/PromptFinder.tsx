@@ -309,9 +309,10 @@ const PromptFinderTaskDetails: React.FC = () => {
   const transformToPromptVersion = useCallback((evaluation: Evaluation): PromptVersionWithEvaluation => {
     // Create a shortened version of the prompt for display
     const shortPrompt = evaluation.prompt
-      .substring(0, 30)
-      .replace(/\n/g, ' ')
-      .trim() + (evaluation.prompt.length > 30 ? '...' : '');
+      ? evaluation.prompt.substring(0, 30)
+        .replace(/\n/g, ' ')
+        .trim() + (evaluation.prompt.length > 30 ? '...' : '')
+      : ''
 
     const version: PromptVersionWithEvaluation = {
       id: evaluation.hash,
