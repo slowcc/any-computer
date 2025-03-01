@@ -527,7 +527,7 @@ export const TaskOptionForm: React.FC<{
 
   const createTaskMutation = useMutation({
     mutationFn: async () => {
-      const { taskId } = await apiClient.post("/@slow/-program", {
+      const { taskId } = await apiClient.post("/@slow/prompt-finder-program", {
         input: {
           initialPrompt,
           variables: JSON5.parse(variables),
